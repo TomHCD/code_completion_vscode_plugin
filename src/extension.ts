@@ -1,7 +1,10 @@
 import axios from 'axios';
 import * as vscode from 'vscode';
+const { parse } = require("java-parser");
+const jsonpath = require('jsonpath');
+const jsonpathFaster = require('jsonpath-faster')
 const source1 = "public int[] twoSum(int[] nums, int target) {" + "PRED " + "for (int i = 0; i < n; ++i) {" + "for (int j = i + 1; j < n; ++j) {" + "if (nums[i] + nums[j] == target) {" + "return new int[]{i, j};}}}" + "return new int[0];}";
-const regex = /(public|protected|private|static|\s) +[\w\<\>\[\]]+\s+(\w+) *\([^\)]*\) *(\{?|[^;])/s;
+//const regex = /(public|protected|private|static|\s) +[\w\<\>\[\]]+\s+(\w+) *\([^\)]*\) *(\{?|[^;])/s;
 
 function removeSpecials(str: string){
 	let res = "";
@@ -19,13 +22,47 @@ class JavaCompletion implements vscode.CompletionItemProvider{
 		document: vscode.TextDocument, 
 		position: vscode.Position,
 	){
+		
 		let linePrefix = document.lineAt(position).text.substring(0, position.character);
 				if(!linePrefix.endsWith('??')){
 					return undefined;
 				}
-				let ans1 = "";
-				let ans2 = "";
-				
+				let javatext1 = document.getText().replaceAll("??","PRED");
+				let javatext2 = document.getText().replaceAll("??","PRED;");
+				//console.log(javatext1);
+				//console.log(javatext2);
+				let cst;
+				try{
+					cst = parse(javatext1);
+				}catch (err){
+					//console.error(err);
+				}
+				try{
+					cst = parse(javatext2);
+				}catch (err){
+					//console.error(err);
+				}
+				//console.log(cst);
+				//let methods = jsonpath.query(cst,'$..methodDeclaration')
+				let methods = jsonpathFaster.query(cst,'$..methodDeclaration')
+				let methodRange: vscode.Range[] = [];
+				for(let i=0;i<methods.length;i++){
+					let location = methods[i][0]["location"]
+					//console.log(location);
+					methodRange.push(new vscode.Range(new vscode.Position(location.startLine-1,location.startColumn-1),new vscode.Position(location.endLine-1,location.endColumn)));
+				}
+				let testdata = "";
+				for(let i=0;i<methodRange.length;i++){
+					if((position.line>methodRange[i].start.line&&position.line<methodRange[i].end.line)||
+					(position.line>methodRange[i].start.line&&position.line===methodRange[i].end.line&&position.character<methodRange[i].end.character)||
+					(position.line===methodRange[i].start.line&&position.line<methodRange[i].end.line&&position.character>methodRange[i].start.character)||
+					(position.line===methodRange[i].start.line&&position.line===methodRange[i].end.line&&position.character>methodRange[i].start.character&&position.character<methodRange[i].end.character)){
+						testdata = document.getText(methodRange[i]).replaceAll("??","PRED");
+						break;
+					}
+				}
+				console.log(testdata);
+				/*
 				let m;
 				let completeLineNum = document.lineAt(position).lineNumber
 				m = regex.exec(document.lineAt(completeLineNum).text)
@@ -58,14 +95,20 @@ class JavaCompletion implements vscode.CompletionItemProvider{
 				let testdata = document.getText(methodRange).replace("??","PRED");
 				//console.log(testdata);
 
+				*/
+				let ans1: string[] = [] ;
+				let ans2: string[] = [] ;
+
 				await axios({
 					method: 'post',
 					url: 'http://127.0.0.1:8000',
 					headers: {'Content-Type':'application/json'},
 					data: testdata,
 				}).then(res=>{
-					ans1 = res.data[0]['predictions'];
-					ans2 = res.data[1]['prediction_scores'];
+					console.log(res.data)
+					ans1 = res.data['predictions'];
+					ans2 = res.data['prediction_scores'];
+					//return Promise.resolve(true);
 					//console.log(ans1); 
 					//console.log(ans2);     
 				}).catch(error=> {
@@ -83,6 +126,7 @@ class JavaCompletion implements vscode.CompletionItemProvider{
 					tips.push(item);
 				}
 
+				//let tips: vscode.CompletionItem[]  = [];
 				return tips;
 	}
 }
