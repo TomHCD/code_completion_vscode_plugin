@@ -102,7 +102,6 @@ class JavaCompletion implements vscode.CompletionItemProvider{
 				await axios({
 					method: 'post',
 					url: 'http://127.0.0.1:8000',
-					headers: {'Content-Type':'application/json'},
 					data: testdata,
 				}).then(res=>{
 					console.log(res.data)
