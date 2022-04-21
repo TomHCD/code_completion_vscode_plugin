@@ -67,7 +67,7 @@ class JavaCompletion implements vscode.CompletionItemProvider{
 				let time2 = new Date().getTime();
 				console.log("解析代码：",time2-time1,"ms");
 				
-/*
+				/*
 				let m;
 				let completeLineNum = document.lineAt(position).lineNumber
 				m = regex.exec(document.lineAt(completeLineNum).text)
