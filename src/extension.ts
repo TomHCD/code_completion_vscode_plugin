@@ -27,6 +27,8 @@ class JavaCompletion implements vscode.CompletionItemProvider{
 				if(!linePrefix.endsWith('??')){
 					return undefined;
 				}
+				console.log(position);
+				let time1 = new Date().getTime();
 				let javatext1 = document.getText().replaceAll("??","PRED");
 				let javatext2 = document.getText().replaceAll("??","PRED;");
 				//console.log(javatext1);
@@ -35,20 +37,20 @@ class JavaCompletion implements vscode.CompletionItemProvider{
 				try{
 					cst = parse(javatext1);
 				}catch (err){
-					//console.error(err);
+					console.error(err);
 				}
 				try{
 					cst = parse(javatext2);
 				}catch (err){
-					//console.error(err);
+					console.error(err);
 				}
-				//console.log(cst);
+				console.log(cst);
 				//let methods = jsonpath.query(cst,'$..methodDeclaration')
 				let methods = jsonpathFaster.query(cst,'$..methodDeclaration')
 				let methodRange: vscode.Range[] = [];
 				for(let i=0;i<methods.length;i++){
 					let location = methods[i][0]["location"]
-					//console.log(location);
+					console.log(location);
 					methodRange.push(new vscode.Range(new vscode.Position(location.startLine-1,location.startColumn-1),new vscode.Position(location.endLine-1,location.endColumn)));
 				}
 				let testdata = "";
@@ -62,7 +64,10 @@ class JavaCompletion implements vscode.CompletionItemProvider{
 					}
 				}
 				console.log(testdata);
-				/*
+				let time2 = new Date().getTime();
+				console.log("解析代码：",time2-time1,"ms");
+				
+/*
 				let m;
 				let completeLineNum = document.lineAt(position).lineNumber
 				m = regex.exec(document.lineAt(completeLineNum).text)
@@ -91,20 +96,20 @@ class JavaCompletion implements vscode.CompletionItemProvider{
 				}
 				let methodRange = new vscode.Range(new vscode.Position(completeLineNum,0),endPosition);
 				//console.log(document.getText(methodRange));
-
 				let testdata = document.getText(methodRange).replace("??","PRED");
 				//console.log(testdata);
-
 				*/
+
 				let ans1: string[] = [] ;
 				let ans2: string[] = [] ;
 
 				await axios({
 					method: 'post',
+					//url: 'http://172.29.7.224:1818',
 					url: 'http://127.0.0.1:8000',
 					data: testdata,
 				}).then(res=>{
-					console.log(res.data)
+					//console.log(res.data)
 					ans1 = res.data['predictions'];
 					ans2 = res.data['prediction_scores'];
 					//return Promise.resolve(true);
@@ -114,16 +119,22 @@ class JavaCompletion implements vscode.CompletionItemProvider{
 					console.log(error);
 				});
 
+				let time3 = new Date().getTime();
+				console.log("请求结果：",time3-time2,"ms");
+
 				let tips: vscode.CompletionItem[]  = [];
 
-				for(let i=0;i<5;i++){
+				for(let i=0;i<10;i++){
 					let item = new vscode.CompletionItem(removeSpecials(ans1[i]),vscode.CompletionItemKind.Method);
 					item.range = new vscode.Range(new vscode.Position(position.line,position.character-2),new vscode.Position(position.line,position.character));
 					item.detail = ans2[i];
-					item.sortText = String(i);
+					item.sortText = String.fromCharCode(i);
 					item.filterText = "??";
 					tips.push(item);
 				}
+
+				let time4 = new Date().getTime();
+				console.log("显示结果：",time4-time3,"ms");
 
 				//let tips: vscode.CompletionItem[]  = [];
 				return tips;
@@ -144,7 +155,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.languages.registerCompletionItemProvider(
-			"java",//need to be changed
+			"java",
 			new JavaCompletion(),
 			"?",
 		)
